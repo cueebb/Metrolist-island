@@ -57,6 +57,20 @@ jobs:
           git checkout main || git checkout master
           git merge upstream/main --allow-unrelated-histories -X theirs || git merge upstream/master --allow-unrelated-histories -X theirs
 
+      # -----------------------------------------------------------------
+      # ПОДМЕНА ССЫЛОК В КОДЕ (ЧТОБЫ АПДЕЙТЕР И КНОПКА ВЕДИ НА ТВОЙ ФОРК)
+      # -----------------------------------------------------------------
+      - name: Patch Updater and Resources for Fork
+        if: steps.check_release.outputs.should_build == 'true'
+        run: |
+          # 1. Подменяем базовый URL API в Updater.kt на твой форк
+          sed -i 's|https://api.github.com/repos/MetrolistGroup/Metrolist|https://api.github.com/repos/${{ github.repository }}|g' app/src/main/kotlin/com/metrolist/music/utils/Updater.kt || true
+          sed -i 's|https://api.github.com/repos/metrolistGroup/metrolist|https://api.github.com/repos/${{ github.repository }}|g' app/src/main/kotlin/com/metrolist/music/utils/Updater.kt || true
+
+          # 2. Подменяем ссылку на релизы для кнопки в ChangelogScreen
+          sed -i 's|https://github.com/MetrolistGroup/Metrolist/releases|https://github.com/${{ github.repository }}/releases|g' app/src/main/res/values*/strings*.xml || true
+      # -----------------------------------------------------------------
+
       - name: Set up JDK 21
         if: steps.check_release.outputs.should_build == 'true'
         uses: actions/setup-java@v4
@@ -72,13 +86,12 @@ jobs:
         if: steps.check_release.outputs.should_build == 'true'
         run: chmod +x gradlew
 
-      - name: Build Release APKs with Apple Music Package Name
+      - name: Build Release APKs with Custom Application Name
         if: steps.check_release.outputs.should_build == 'true'
         run: ./gradlew --console=plain assemble${{ matrix.variantName }}Release --warning-mode summary
         env:
-          # ВОТ ЗДЕСЬ ПРОИСХОДИТ ВСЯ МАГИЯ:
           METROLIST_APPLICATION_ID: com.apple.android.music
-          METROLIST_APP_NAME: Metrolist (i)
+          METROLIST_APP_NAME: "Metrolist (i)"
 
       - name: Prepare APK File for Release
         if: steps.check_release.outputs.should_build == 'true'
