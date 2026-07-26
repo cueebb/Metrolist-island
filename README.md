@@ -2,7 +2,7 @@
 
 <img src="https://github.com/MetrolistGroup/Metrolist/blob/main/fastlane/metadata/android/en-US/images/icon.png" alt="Metrolist app icon" width="200" />
 
-# Metrolist
+# Metrolist (island)
 
 ### YouTube Music client for Android
 
