@@ -32,7 +32,7 @@
 > [!NOTE]
 > # this is a fork
 > this is a fork of Metrolist. it makes that chinese version of chinese phones (like vivo, iqoo, oneplus and others. tested on vivo) use "dynamic island" copy for music controls instead of usual notification. unfortunately, there are a button, that should like the track, but it doesn't work (applemsuic feature doesn't supported, hope this only for me). 
-> ideas for future:
+> ideas for future
 > add "like" button support 
 > add different version of app with different package name (com.apple.android.music only for now, because only it worked for me)
 
