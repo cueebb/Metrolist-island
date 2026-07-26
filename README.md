@@ -35,12 +35,12 @@
 
 > [!NOTE]
 > # ideas for future
-> add "like" button support 
+> add "like" button support.   
 > add different version of app with different package name (com.apple.android.music only for now, because only it worked for me)
 
 > [!WARNING]
 > # MAINTENANCE MODE
-> Metrolist is currently in maintenance mode. This means we will only be fixing bugs and making minor improvements. Please do not submit PRs for new features or major changes, as they will not be accepted.  
+> Metrolist is currently in maintenance mode. This means we will only be fixing bugs and making minor improvements. Please do not submit PRs for new features or major changes, as they will not be accepted.   
 > The app is **NOT** dead, please stay tuned for updates on our discord (found above).
 
 > [!WARNING]
