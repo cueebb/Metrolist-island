@@ -2,9 +2,8 @@ name: Auto Build Metrolist Island
 
 on:
   schedule:
-    # Проверка каждые 15 минут
-    - cron: '*/15 * * * *'
-  workflow_dispatch: # Кнопка для ручного запуска в любое время
+    - cron: '*/15 * * * *' # Проверка каждые 15 минут
+  workflow_dispatch: # Ручной запуск
 
 jobs:
   check-and-build:
@@ -12,39 +11,39 @@ jobs:
     permissions:
       contents: write
 
+    strategy:
+      matrix:
+        include:
+          - variant: foss
+            variantName: Foss
+          - variant: gms
+            variantName: Gms
+
     steps:
       - name: Checkout Fork Code
         uses: actions/checkout@v4
         with:
+          submodules: recursive
           fetch-depth: 0
 
       - name: Check Upstream Release
         id: check_release
         run: |
-          # 1. Запрашиваем данные последнего релиза оригинала в JSON
           RESPONSE=$(curl -s https://api.github.com/repos/metrolistGroup/metrolist/releases/latest)
-          
           UPSTREAM_TAG=$(echo "$RESPONSE" | jq -r .tag_name)
-          # Сохраняем оригинальное описание релиза
           echo "$RESPONSE" | jq -r .body > release_notes.txt
           
           echo "Upstream release tag: $UPSTREAM_TAG"
-
-          # 2. Получаем тег последнего релиза твоего форка
           MY_TAG=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .tag_name)
           echo "My fork release tag: $MY_TAG"
 
-          # 3. Сравниваем теги
           if [ "$UPSTREAM_TAG" != "null" ] && [ "$UPSTREAM_TAG" != "" ] && [ "$UPSTREAM_TAG" != "$MY_TAG" ]; then
-            echo "New release detected: $UPSTREAM_TAG"
             echo "should_build=true" >> $GITHUB_OUTPUT
             echo "tag=$UPSTREAM_TAG" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "Manual trigger detected."
             echo "should_build=true" >> $GITHUB_OUTPUT
             echo "tag=${UPSTREAM_TAG:-v1.0.0}" >> $GITHUB_OUTPUT
           else
-            echo "No new releases found."
             echo "should_build=false" >> $GITHUB_OUTPUT
           fi
 
@@ -58,54 +57,46 @@ jobs:
           git checkout main || git checkout master
           git merge upstream/main --allow-unrelated-histories -X theirs || git merge upstream/master --allow-unrelated-histories -X theirs
 
-      - name: Set up Java 17
+      - name: Set up JDK 21
         if: steps.check_release.outputs.should_build == 'true'
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          java-version: "21"
+          distribution: "temurin"
 
-      - name: Set up Flutter
+      - name: Set Up Gradle
         if: steps.check_release.outputs.should_build == 'true'
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Replace Package Name to Apple Music
+      - name: Grant execute permission for gradlew
+        if: steps.check_release.outputs.should_build == 'true'
+        run: chmod +x gradlew
+
+      - name: Build Release APKs with Apple Music Package Name
+        if: steps.check_release.outputs.should_build == 'true'
+        run: ./gradlew --console=plain assemble${{ matrix.variantName }}Release --warning-mode summary
+        env:
+          # ВОТ ЗДЕСЬ ПРОИСХОДИТ ВСЯ МАГИЯ:
+          METROLIST_APPLICATION_ID: com.apple.android.music
+          METROLIST_APP_NAME: Metrolist Island
+
+      - name: Prepare APK File for Release
         if: steps.check_release.outputs.should_build == 'true'
         run: |
-          OLD_PKG="com.metrolist.music"
-          NEW_PKG="com.apple.android.music"
-
-          echo "Replacing $OLD_PKG -> $NEW_PKG..."
-
-          # Замена в Gradle и AndroidManifest
-          find android/ -type f \( -name "build.gradle*" -o -name "AndroidManifest.xml" \) -exec sed -i "s/$OLD_PKG/$NEW_PKG/g" {} +
-
-          # Переименование структуры папок Kotlin/Java
-          OLD_PATH="android/app/src/main/kotlin/com/metrolist/music"
-          NEW_PATH="android/app/src/main/kotlin/com/apple/android/music"
-
-          if [ -d "$OLD_PATH" ]; then
-            mkdir -p "$NEW_PATH"
-            mv "$OLD_PATH"/* "$NEW_PATH"/ 2>/dev/null || true
-          fi
-
-      - name: Install Flutter Dependencies
-        if: steps.check_release.outputs.should_build == 'true'
-        run: flutter pub get
-
-      - name: Build Release APK
-        if: steps.check_release.outputs.should_build == 'true'
-        run: flutter build apk --release
+          OUTPUT_DIR="app/build/outputs/apk/${{ matrix.variant }}/release"
+          mkdir -p "out"
+          
+          # Находим собранный APK и переименовываем для релиза
+          APK_FILE=$(find "$OUTPUT_DIR" -name "*.apk" | head -n 1)
+          cp "$APK_FILE" "out/Metrolist-${{ matrix.variant }}-${{ steps.check_release.outputs.tag }}.apk"
 
       - name: Publish Release to Fork
         if: steps.check_release.outputs.should_build == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "${{ steps.check_release.outputs.tag }}"
-          name: "Metrolist (${{ steps.check_release.outputs.tag }})"
+          name: "Metrolist Island (${{ steps.check_release.outputs.tag }})"
           body_path: release_notes.txt
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: out/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
