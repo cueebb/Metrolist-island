@@ -16,8 +16,10 @@ jobs:
         include:
           - variant: foss
             variantName: Foss
+            fileSuffix: "Metrolist-Island"
           - variant: gms
             variantName: Gms
+            fileSuffix: "Metrolist-Island-GMS"
 
     steps:
       - name: Checkout Fork Code
@@ -57,19 +59,13 @@ jobs:
           git checkout main || git checkout master
           git merge upstream/main --allow-unrelated-histories -X theirs || git merge upstream/master --allow-unrelated-histories -X theirs
 
-      # -----------------------------------------------------------------
-      # ПОДМЕНА ССЫЛОК В КОДЕ (ЧТОБЫ АПДЕЙТЕР И КНОПКА ВЕДИ НА ТВОЙ ФОРК)
-      # -----------------------------------------------------------------
+      # ПОДМЕНА ССЫЛОК В КОДЕ
       - name: Patch Updater and Resources for Fork
         if: steps.check_release.outputs.should_build == 'true'
         run: |
-          # 1. Подменяем базовый URL API в Updater.kt на твой форк
           sed -i 's|https://api.github.com/repos/MetrolistGroup/Metrolist|https://api.github.com/repos/${{ github.repository }}|g' app/src/main/kotlin/com/metrolist/music/utils/Updater.kt || true
           sed -i 's|https://api.github.com/repos/metrolistGroup/metrolist|https://api.github.com/repos/${{ github.repository }}|g' app/src/main/kotlin/com/metrolist/music/utils/Updater.kt || true
-
-          # 2. Подменяем ссылку на релизы для кнопки в ChangelogScreen
           sed -i 's|https://github.com/MetrolistGroup/Metrolist/releases|https://github.com/${{ github.repository }}/releases|g' app/src/main/res/values*/strings*.xml || true
-      # -----------------------------------------------------------------
 
       - name: Set up JDK 21
         if: steps.check_release.outputs.should_build == 'true'
@@ -93,22 +89,50 @@ jobs:
           METROLIST_APPLICATION_ID: com.apple.android.music
           METROLIST_APP_NAME: "Metrolist (i)"
 
+      # ПОДПИСЬ APK ФАЙЛА ПОСТОЯННЫМ КЛЮЧОМ
+      - name: Sign APK File
+        if: steps.check_release.outputs.should_build == 'true' && secrets.SIGNING_KEY != ''
+        run: |
+          OUTPUT_DIR="app/build/outputs/apk/${{ matrix.variant }}/release"
+          APK_FILE=$(find "$OUTPUT_DIR" -name "*.apk" | head -n 1)
+
+          # Декодируем .jks файл из секретов
+          echo "${{ secrets.SIGNING_KEY }}" | base64 -d > release.jks
+
+          # Находим apksigner и zipalign в Android SDK
+          BUILD_TOOLS_DIR=$(ls -d $ANDROID_HOME/build-tools/* | tail -n 1)
+          
+          # Выравниваем APK (zipalign)
+          $BUILD_TOOLS_DIR/zipalign -v -p 4 "$APK_FILE" "$OUTPUT_DIR/aligned.apk"
+
+          # Подписываем постоянным ключом
+          $BUILD_TOOLS_DIR/apksigner sign \
+            --ks release.jks \
+            --ks-pass pass:"${{ secrets.KEY_STORE_PASSWORD }}" \
+            --ks-key-alias "${{ secrets.ALIAS }}" \
+            --key-pass pass:"${{ secrets.KEY_PASSWORD }}" \
+            --out "$OUTPUT_DIR/signed.apk" \
+            "$OUTPUT_DIR/aligned.apk"
+
+          # Заменяем оригинальный файл подписанным
+          mv "$OUTPUT_DIR/signed.apk" "$APK_FILE"
+          rm -f release.jks "$OUTPUT_DIR/aligned.apk"
+
       - name: Prepare APK File for Release
         if: steps.check_release.outputs.should_build == 'true'
         run: |
           OUTPUT_DIR="app/build/outputs/apk/${{ matrix.variant }}/release"
           mkdir -p "out"
           
-          # Находим собранный APK и переименовываем для релиза
           APK_FILE=$(find "$OUTPUT_DIR" -name "*.apk" | head -n 1)
-          cp "$APK_FILE" "out/Metrolist-${{ matrix.variant }}-${{ steps.check_release.outputs.tag }}.apk"
+          cp "$APK_FILE" "out/${{ matrix.fileSuffix }}-${{ steps.check_release.outputs.tag }}.apk"
 
       - name: Publish Release to Fork
         if: steps.check_release.outputs.should_build == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "${{ steps.check_release.outputs.tag }}"
-          name: "Metrolist Island (${{ steps.check_release.outputs.tag }})"
+          name: "Metrolist Island ${{ steps.check_release.outputs.tag }}"
           body_path: release_notes.txt
           files: out/*.apk
         env:
