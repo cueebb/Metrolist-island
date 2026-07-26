@@ -31,7 +31,7 @@
 
 > [!NOTE]
 > ## this is a fork
-> this is a fork of Metrolist. it makes that chinese version of chinese phones (like vivo, iqoo, oneplus and others. tested on vivo) use "dynamic island" copy for music controls instead of usual notification. unfortunately, there are a button, that should like the track, but it doesn't work (applemsuic feature doesn't supported, hope this only for me). 
+> this is a fork of Metrolist. it makes that chinese version of chinese phones (like vivo, iqoo, oneplus and others. tested on vivo) use "dynamic island" for music controls instead of usual notification. unfortunately, there are a button, that should like the track, but it doesn't work (applemsuic feature doesn't supported, hope this only for me). 
 
 > [!NOTE]
 > ## ideas for future
