@@ -78,7 +78,7 @@ jobs:
         env:
           # ВОТ ЗДЕСЬ ПРОИСХОДИТ ВСЯ МАГИЯ:
           METROLIST_APPLICATION_ID: com.apple.android.music
-          METROLIST_APP_NAME: Metrolist Island
+          METROLIST_APP_NAME: Metrolist
 
       - name: Prepare APK File for Release
         if: steps.check_release.outputs.should_build == 'true'
